@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/kaj-kwok/tinyapp/issues"
   },
-  "homepage": "https://github.com/kaj-kwok/tinyapp#readme"
+  "homepage": "https://github.com/kaj-kwok/tinyapp#readme",
+  "dependencies": {
+    "express": "^4.17.3"
+  }
 }
