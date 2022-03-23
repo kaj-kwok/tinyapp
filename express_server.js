@@ -10,8 +10,14 @@ app.set('view engine', 'ejs');
 app.use(cookieParser());
 
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://google.com"
+  "b2xVn2": {
+      longURL: "http://www.lighthouselabs.ca",
+      userID: "7npfuk"
+    },
+  "9sm5xK": {
+      longURL: "http://google.com",
+      userID: "7npfuk"
+    }
 };
 
 const users = { 
@@ -103,9 +109,13 @@ app.get("/urls" , (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
+  if (checkIfLoggedIn(req.cookies.user_id, users)) {
   const shortURL = generateRandomString()
-  urlDatabase[shortURL] = req.body.longURL;
+  urlDatabase[shortURL] = { longURL: req.body.longURL};
   res.redirect(`/urls/${shortURL}`)
+  } else {
+    res.status(401).write("Forbidden")
+  }
 });
 
 app.get("/register", (req, res) => {
@@ -131,7 +141,6 @@ app.post("/register", (req, res) => {
 })
 
 app.get("/urls/new", (req, res) => {
-  console.log(req.cookies.user_id)
   if (checkIfLoggedIn(req.cookies.user_id, users)) {
     const templateVars = {
       user: users[req.cookies.user_id]
@@ -145,18 +154,19 @@ app.get("/urls/new", (req, res) => {
 app.get("/urls/:shortURL", (req, res) => {
   const templateVars = { 
     shortURL: req.params.shortURL, 
-    longURL: urlDatabase[req.params.shortURL],
+    longURL: urlDatabase[req.params.shortURL].longURL,
     user: users[req.cookies.user_id]
   }
   res.render("urls_show", templateVars)
 })
 
 app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL]
-  if(!longURL.startsWith('http://') || !longURL.startsWith('https://')){
+  const longURL = urlDatabase[req.params.shortURL].longURL
+  console.log(longURL)
+  if(!(longURL.startsWith('http://')) && !(longURL.startsWith('https://'))){
     res.redirect(`https://${longURL}`)
   } else{
-    res.redirect(longURL)
+    res.redirect(`${longURL}`)
   }
 })
 
