@@ -27,8 +27,8 @@ const users = {
   },
   "7npfuk": {
     id: "7npfuk",
-    email: "user2@test.com", 
-    password: "dishwasher-test"
+    email: "ryan@ryan.com", 
+    password: "test123"
   }
 };
 
@@ -50,6 +50,14 @@ function retrieveUser (email, users) {
       return users[user];
     }
   }return false;
+}
+
+function checkIfLoggedIn(id, users) {
+  for (user in users) {
+    if (users[user].id === id){
+      return true;
+    }
+  }return false
 }
 
 app.get("/", (req, res) => {
@@ -123,10 +131,15 @@ app.post("/register", (req, res) => {
 })
 
 app.get("/urls/new", (req, res) => {
-  const templateVars = {
-    user: users[req.cookies.user_id]
+  console.log(req.cookies.user_id)
+  if (checkIfLoggedIn(req.cookies.user_id, users)) {
+    const templateVars = {
+      user: users[req.cookies.user_id]
+    }
+    res.render("urls_new", templateVars);
+  } else {
+    res.redirect("/login")
   }
-  res.render("urls_new", templateVars);
 });
 
 app.get("/urls/:shortURL", (req, res) => {
@@ -156,11 +169,6 @@ app.post("/urls/:shortURL/update", (req, res) => {
   urlDatabase[req.params.shortURL] = req.body.longURL;
   res.redirect("/urls")
 })
-
-// app.post("/urls/login", (req, res) => {
-//   res.cookie("user_ui", req.body.username)
-//   res.redirect("/urls")
-// })
 
 app.post("/urls/logout", (req, res) => {
   res.clearCookie("user_id")
