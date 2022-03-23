@@ -11,17 +11,17 @@
       </div>
       
       <div class="login_nav navbar-brand" style="display: flex">
-        <% if(username && username !== "undefined") { %>
+        <% if(user && user !== "undefined") { %>
           <form method="POST" action="/urls/logout" class="form-inline">
-          <font class="pr-4">Hi, <%= username %> </font>
+          <font class="pr-4">Hi, <%= user.email %> </font>
         <button type="submit" class="btn btn-primary">Log Out</button>
       </form>
     </div>
         <% } else { %> 
-        <form method="POST" action="/urls/login" class="form-inline">
-        <input type="text" class="form-control" name="username" placeholder="Username" aria-label="Username" aria-describedby="basic-addon1">
-        <button type="submit" class="btn btn-primary">Login</button>
-      </form>
+        <form action="/login" class="form-inline">
+        <button type="submit" class="btn btn-primary">Login</button></form>
+        <form action="/register" class="form-inline">
+        <button type="submit" class="btn btn-primary">Register</button></form>
       <% } %>
       
       </div>
