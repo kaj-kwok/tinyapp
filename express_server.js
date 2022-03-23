@@ -4,6 +4,7 @@ const PORT = 3000;
 const bodyParser = require("body-parser");
 const cookieParser = require('cookie-parser');
 const { get } = require("http");
+const { url } = require("inspector");
 app.use(bodyParser.urlencoded({extended: true}));
 
 app.set('view engine', 'ejs');
@@ -101,20 +102,24 @@ app.post("/login", (req, res) => {
 })
 
 app.get("/urls" , (req, res) => {
-  const templateVars = { 
-    urls: urlDatabase,
-    user: users[req.cookies.user_id]
+  if(checkIfLoggedIn(req.cookies.user_id, users)){
+    const templateVars = { 
+      urls: urlDatabase,
+      user: users[req.cookies.user_id]
+    }
+    res.render("urls_index", templateVars)
+  } else {
+      res.status(401).send(`Please Login First or Register`)
   }
-  res.render("urls_index", templateVars)
 });
 
 app.post("/urls", (req, res) => {
   if (checkIfLoggedIn(req.cookies.user_id, users)) {
   const shortURL = generateRandomString()
-  urlDatabase[shortURL] = { longURL: req.body.longURL};
+  urlDatabase[shortURL] = { longURL: req.body.longURL, userID: req.cookies.user_id};
   res.redirect(`/urls/${shortURL}`)
   } else {
-    res.status(401).write("Forbidden")
+    res.statusStatus(401).write("Forbidden")
   }
 });
 
@@ -152,17 +157,20 @@ app.get("/urls/new", (req, res) => {
 });
 
 app.get("/urls/:shortURL", (req, res) => {
-  const templateVars = { 
-    shortURL: req.params.shortURL, 
-    longURL: urlDatabase[req.params.shortURL].longURL,
-    user: users[req.cookies.user_id]
+  if (!urlDatabase[req.params.shortURL]) {
+    res.status(404).redirect("/404")
+  } else {
+    const templateVars = { 
+      shortURL: req.params.shortURL, 
+      longURL: urlDatabase[req.params.shortURL].longURL,
+      user: users[req.cookies.user_id]
+    }
+    res.render("urls_show", templateVars)
   }
-  res.render("urls_show", templateVars)
 })
 
 app.get("/u/:shortURL", (req, res) => {
   const longURL = urlDatabase[req.params.shortURL].longURL
-  console.log(longURL)
   if(!(longURL.startsWith('http://')) && !(longURL.startsWith('https://'))){
     res.redirect(`https://${longURL}`)
   } else{
@@ -183,6 +191,13 @@ app.post("/urls/:shortURL/update", (req, res) => {
 app.post("/urls/logout", (req, res) => {
   res.clearCookie("user_id")
   res.redirect("/urls")
+})
+
+app.get("/404", (req, res) => {
+  const templateVars = {
+    user: users[req.cookies.user_id]
+  }
+  res.render("404", templateVars)
 })
 
 app.listen(PORT, () => {
