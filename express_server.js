@@ -17,7 +17,7 @@ const urlDatabase = {
     },
   "9sm5xK": {
       longURL: "http://google.com",
-      userID: "7npfuk"
+      userID: "userRandomID"
     }
 };
 
@@ -67,6 +67,15 @@ function checkIfLoggedIn(id, users) {
   }return false
 }
 
+function returnUserURLs (userid, urlDatabase) {
+  let urls = {};
+  for (const url in urlDatabase) {
+    if (urlDatabase[url].userID === userid){
+      urls[url] = urlDatabase[url]
+    }
+  } return urls;
+}
+
 app.get("/", (req, res) => {
   res.send("Hello!");
 });
@@ -103,8 +112,9 @@ app.post("/login", (req, res) => {
 
 app.get("/urls" , (req, res) => {
   if(checkIfLoggedIn(req.cookies.user_id, users)){
+    let userURLs = returnUserURLs(req.cookies.user_id, urlDatabase)
     const templateVars = { 
-      urls: urlDatabase,
+      urls: userURLs,
       user: users[req.cookies.user_id]
     }
     res.render("urls_index", templateVars)
@@ -159,6 +169,9 @@ app.get("/urls/new", (req, res) => {
 app.get("/urls/:shortURL", (req, res) => {
   if (!urlDatabase[req.params.shortURL]) {
     res.status(404).redirect("/404")
+  }
+  if(!(urlDatabase[req.params.shortURL].userID === req.cookies.user_id)){
+    res.status(401).send("Do not have permission")
   } else {
     const templateVars = { 
       shortURL: req.params.shortURL, 
@@ -179,8 +192,12 @@ app.get("/u/:shortURL", (req, res) => {
 })
 
 app.post("/urls/:shortURL/delete", (req, res) => {
-  delete urlDatabase[req.params.shortURL]
-  res.redirect("/urls")
+  if (urlDatabase[req.params.shortURL].userID === req.cookies.user_id){
+    delete urlDatabase[req.params.shortURL]
+    res.redirect("/urls")
+  } else {
+    res.status(401).send("Do not have permission")
+  }
 })
 
 app.post("/urls/:shortURL/update", (req, res) => {
