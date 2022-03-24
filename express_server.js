@@ -5,6 +5,7 @@ const bodyParser = require("body-parser");
 const cookieParser = require('cookie-parser');
 const { get } = require("http");
 const { url } = require("inspector");
+const bcrypt = require('bcryptjs');
 app.use(bodyParser.urlencoded({extended: true}));
 
 app.set('view engine', 'ejs');
@@ -77,7 +78,7 @@ function returnUserURLs (userid, urlDatabase) {
 }
 
 app.get("/", (req, res) => {
-  res.send("Hello!");
+  res.redirect("/login");
 });
 
 app.get("/urls.json", (req, res) => {
@@ -98,7 +99,7 @@ app.get("/login", (req, res) => {
 app.post("/login", (req, res) => {
   if(checkUserExists(req.body.email, users)){
     user = retrieveUser(req.body.email, users);
-    if(user.password === req.body.password){
+    if(bcrypt.compareSync(req.body.password, user.password)){
       res.cookie("user_id", user.id)
       res.redirect("/urls")
     }
@@ -148,7 +149,7 @@ app.post("/register", (req, res) => {
     users[id] = {
       id: id,
       email: req.body.email,
-      password: req.body.password
+      password: bcrypt.hashSync(req.body.password, 10)
     };
     res.cookie("user_id", id);
     res.redirect("/urls")
@@ -207,7 +208,7 @@ app.post("/urls/:shortURL/update", (req, res) => {
 
 app.post("/urls/logout", (req, res) => {
   res.clearCookie("user_id")
-  res.redirect("/urls")
+  res.redirect("/")
 })
 
 app.get("/404", (req, res) => {
