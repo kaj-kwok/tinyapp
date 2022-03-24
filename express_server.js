@@ -2,30 +2,34 @@ const express = require("express");
 const app = express();
 const PORT = 3000;
 const bodyParser = require("body-parser");
-const cookieSession = require('cookie-session')
-// const { get } = require("http");
-// const { url } = require("inspector");
+const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
-const { generateRandomString, checkUserExists, getUserByEmail, checkIfLoggedIn, returnUserURLs} = require("./helpers")
-app.use(bodyParser.urlencoded({extended: true}));
+var methodOverride = require('method-override')
+const { generateRandomString, checkUserExists, getUserByEmail, checkIfLoggedIn, returnUserURLs} = require("./helpers");
 
 app.set('view engine', 'ejs');
+app.use(bodyParser.urlencoded({extended: true}));
 app.use(cookieSession({
   name: 'session',
   keys: ['key1'],
 
   // Cookie Options
   maxAge: 24 * 60 * 60 * 1000 // 24 hours
-}))
+}));
+app.use(methodOverride('_method'))
 
 const urlDatabase = {
   "b2xVn2": {
       longURL: "http://www.lighthouselabs.ca",
-      userID: "7npfuk"
+      userID: "7npfuk",
+      noVists: 0,
+      uniqueViews: 0
     },
   "9sm5xK": {
       longURL: "http://google.com",
-      userID: "user2RandomID"
+      userID: "user2RandomID",
+      noVisits: 0,
+      uniqueViews: 0
     }
 };
 
@@ -97,7 +101,7 @@ app.get("/urls" , (req, res) => {
 app.post("/urls", (req, res) => {
   if (checkIfLoggedIn(req.session.user_id, users)) {
   const shortURL = generateRandomString()
-  urlDatabase[shortURL] = { longURL: req.body.longURL, userID: req.session.user_id};
+  urlDatabase[shortURL] = { longURL: req.body.longURL, userID: req.session.user_id, noVisits: 0, uniqueViews: 0};
   res.redirect(`/urls/${shortURL}`)
   } else {
     res.statusStatus(401).write("Forbidden")
@@ -147,13 +151,15 @@ app.get("/urls/:shortURL", (req, res) => {
     const templateVars = { 
       shortURL: req.params.shortURL, 
       longURL: urlDatabase[req.params.shortURL].longURL,
-      user: users[req.session.user_id]
+      user: users[req.session.user_id],
+      views: urlDatabase[req.params.shortURL].noVists
     }
     res.render("urls_show", templateVars)
   }
 })
 
 app.get("/u/:shortURL", (req, res) => {
+  urlDatabase[req.params.shortURL].noVists += 1;
   const longURL = urlDatabase[req.params.shortURL].longURL
   if(!(longURL.startsWith('http://')) && !(longURL.startsWith('https://'))){
     res.redirect(`https://${longURL}`)
@@ -162,7 +168,7 @@ app.get("/u/:shortURL", (req, res) => {
   }
 })
 
-app.post("/urls/:shortURL/delete", (req, res) => {
+app.delete("/urls/:shortURL", (req, res) => {
   if (urlDatabase[req.params.shortURL].userID === req.session.user_id){
     delete urlDatabase[req.params.shortURL]
     res.redirect("/urls")
@@ -171,8 +177,8 @@ app.post("/urls/:shortURL/delete", (req, res) => {
   }
 })
 
-app.post("/urls/:shortURL/update", (req, res) => {
-  urlDatabase[req.params.shortURL] = req.body.longURL;
+app.put("/urls/:shortURL", (req, res) => {
+  urlDatabase[req.params.shortURL].longURL = req.body.longURL;
   res.redirect("/urls")
 })
 
