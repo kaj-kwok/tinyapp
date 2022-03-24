@@ -2,14 +2,21 @@ const express = require("express");
 const app = express();
 const PORT = 3000;
 const bodyParser = require("body-parser");
-const cookieParser = require('cookie-parser');
-const { get } = require("http");
-const { url } = require("inspector");
+const cookieSession = require('cookie-session')
+// const { get } = require("http");
+// const { url } = require("inspector");
 const bcrypt = require('bcryptjs');
+const { generateRandomString, checkUserExists, getUserByEmail, checkIfLoggedIn, returnUserURLs} = require("./helpers")
 app.use(bodyParser.urlencoded({extended: true}));
 
 app.set('view engine', 'ejs');
-app.use(cookieParser());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['key1'],
+
+  // Cookie Options
+  maxAge: 24 * 60 * 60 * 1000 // 24 hours
+}))
 
 const urlDatabase = {
   "b2xVn2": {
@@ -18,7 +25,7 @@ const urlDatabase = {
     },
   "9sm5xK": {
       longURL: "http://google.com",
-      userID: "userRandomID"
+      userID: "user2RandomID"
     }
 };
 
@@ -30,55 +37,18 @@ const users = {
   },
  "user2RandomID": {
     id: "user2RandomID", 
-    email: "user2@example.com", 
-    password: "dishwasher-funk"
+    email: "ryan@a.com", 
+    password: "$2a$10$lCqCy3JammInLRHu/yo3OOxcXwqBEoI0TCfwBlS.JYUDc.7eu9y4m"
   },
   "7npfuk": {
     id: "7npfuk",
-    email: "ryan@ryan.com", 
-    password: "test123"
+    email: "ryan@test.com", 
+    password: "$2a$10$sx..Jmb8a4pzDg6toVb8LebNxaGbomsKxhm1FJb37pHctKdzgpVse"
   }
 };
 
-function generateRandomString() {
-  return Math.random().toString(36).slice(7)
-};
-
-function checkUserExists(email, users) {
-  for (user in users) {
-    if (users[user].email === email){
-      return true;
-    }
-  } return false;
-}
-
-function retrieveUser (email, users) {
-  for (user in users) {
-    if(users[user].email === email){
-      return users[user];
-    }
-  }return false;
-}
-
-function checkIfLoggedIn(id, users) {
-  for (user in users) {
-    if (users[user].id === id){
-      return true;
-    }
-  }return false
-}
-
-function returnUserURLs (userid, urlDatabase) {
-  let urls = {};
-  for (const url in urlDatabase) {
-    if (urlDatabase[url].userID === userid){
-      urls[url] = urlDatabase[url]
-    }
-  } return urls;
-}
-
 app.get("/", (req, res) => {
-  res.redirect("/login");
+  res.send("hello");
 });
 
 app.get("/urls.json", (req, res) => {
@@ -91,16 +61,16 @@ app.get("/hello", (req, res) => {
 
 app.get("/login", (req, res) => {
   const templateVars = {
-    user: users[req.cookies.user_id]
+    user: users[req.session.user_id]
   }
   res.render("login", templateVars)
 })
 
 app.post("/login", (req, res) => {
   if(checkUserExists(req.body.email, users)){
-    user = retrieveUser(req.body.email, users);
+    user = getUserByEmail(req.body.email, users);
     if(bcrypt.compareSync(req.body.password, user.password)){
-      res.cookie("user_id", user.id)
+      req.session.user_id = user.id
       res.redirect("/urls")
     }
     else{
@@ -112,11 +82,11 @@ app.post("/login", (req, res) => {
 })
 
 app.get("/urls" , (req, res) => {
-  if(checkIfLoggedIn(req.cookies.user_id, users)){
-    let userURLs = returnUserURLs(req.cookies.user_id, urlDatabase)
+  if(checkIfLoggedIn(req.session.user_id, users)){
+    let userURLs = returnUserURLs(req.session.user_id, urlDatabase)
     const templateVars = { 
       urls: userURLs,
-      user: users[req.cookies.user_id]
+      user: users[req.session.user_id]
     }
     res.render("urls_index", templateVars)
   } else {
@@ -125,9 +95,9 @@ app.get("/urls" , (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
-  if (checkIfLoggedIn(req.cookies.user_id, users)) {
+  if (checkIfLoggedIn(req.session.user_id, users)) {
   const shortURL = generateRandomString()
-  urlDatabase[shortURL] = { longURL: req.body.longURL, userID: req.cookies.user_id};
+  urlDatabase[shortURL] = { longURL: req.body.longURL, userID: req.session.user_id};
   res.redirect(`/urls/${shortURL}`)
   } else {
     res.statusStatus(401).write("Forbidden")
@@ -136,7 +106,7 @@ app.post("/urls", (req, res) => {
 
 app.get("/register", (req, res) => {
   const templateVars = {
-  user: users[req.cookies.user_id]
+  user: users[req.session.user_id]
   }
   res.render("register", templateVars)
 })
@@ -151,15 +121,15 @@ app.post("/register", (req, res) => {
       email: req.body.email,
       password: bcrypt.hashSync(req.body.password, 10)
     };
-    res.cookie("user_id", id);
+    req.session.user_id = user.id
     res.redirect("/urls")
   }
 })
 
 app.get("/urls/new", (req, res) => {
-  if (checkIfLoggedIn(req.cookies.user_id, users)) {
+  if (req.session.user_id) {
     const templateVars = {
-      user: users[req.cookies.user_id]
+      user: users[req.session.user_id]
     }
     res.render("urls_new", templateVars);
   } else {
@@ -171,13 +141,13 @@ app.get("/urls/:shortURL", (req, res) => {
   if (!urlDatabase[req.params.shortURL]) {
     res.status(404).redirect("/404")
   }
-  if(!(urlDatabase[req.params.shortURL].userID === req.cookies.user_id)){
+  if(!(urlDatabase[req.params.shortURL].userID === req.session.user_id)){
     res.status(401).send("Do not have permission")
   } else {
     const templateVars = { 
       shortURL: req.params.shortURL, 
       longURL: urlDatabase[req.params.shortURL].longURL,
-      user: users[req.cookies.user_id]
+      user: users[req.session.user_id]
     }
     res.render("urls_show", templateVars)
   }
@@ -193,7 +163,7 @@ app.get("/u/:shortURL", (req, res) => {
 })
 
 app.post("/urls/:shortURL/delete", (req, res) => {
-  if (urlDatabase[req.params.shortURL].userID === req.cookies.user_id){
+  if (urlDatabase[req.params.shortURL].userID === req.session.user_id){
     delete urlDatabase[req.params.shortURL]
     res.redirect("/urls")
   } else {
@@ -207,13 +177,13 @@ app.post("/urls/:shortURL/update", (req, res) => {
 })
 
 app.post("/urls/logout", (req, res) => {
-  res.clearCookie("user_id")
-  res.redirect("/")
+  res.clearCookie("session")
+  res.redirect("/login")
 })
 
 app.get("/404", (req, res) => {
   const templateVars = {
-    user: users[req.cookies.user_id]
+    user: users[req.session.user_id]
   }
   res.render("404", templateVars)
 })
