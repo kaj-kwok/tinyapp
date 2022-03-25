@@ -9,7 +9,7 @@ const checkUserExists = function(email, users) {
       return true;
     }
   } return false;
-}
+};
 
 const getUserByEmail = function(email, users) {
   for (user in users) {
@@ -17,7 +17,7 @@ const getUserByEmail = function(email, users) {
       return users[user];
     }
   }return false;
-}
+};
 
 const checkIfLoggedIn = function(id, users) {
   for (user in users) {
@@ -25,7 +25,7 @@ const checkIfLoggedIn = function(id, users) {
       return true;
     }
   }return false
-}
+};
 
 const returnUserURLs = function(userid, urlDatabase) {
   let urls = {};
@@ -34,6 +34,20 @@ const returnUserURLs = function(userid, urlDatabase) {
       urls[url] = urlDatabase[url]
     }
   } return urls;
-}
+};
 
-module.exports = { generateRandomString, checkUserExists, getUserByEmail , checkIfLoggedIn, returnUserURLs}
+const uniqueViews = function(id, obj) {
+  if (!(id in obj)){
+    return 0;
+  } else {
+    return Object.keys(obj[id]).length
+  }
+};
+
+const currentTimeStamp = () =>{
+  time = new Date().toString()
+  return time;
+};
+
+
+module.exports = { generateRandomString, checkUserExists, getUserByEmail , checkIfLoggedIn, returnUserURLs, uniqueViews, currentTimeStamp }
