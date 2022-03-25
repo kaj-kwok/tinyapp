@@ -70,22 +70,23 @@ const users = {
 
 
 app.get("/", (req, res) => {
-  res.send("hello");
-});
-
-app.get("/urls.json", (req, res) => {
-  res.json(urlDatabase)
-});
-
-app.get("/hello", (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n");
+  if (checkIfLoggedIn(req.session.user_id, users)){
+    res.redirect("/urls");
+  }
+  else{
+    res.redirect("login");
+  };
 });
 
 app.get("/login", (req, res) => {
-  const templateVars = {
-    user: users[req.session.user_id]
+  if (checkIfLoggedIn(req.session.user_id, users)) {
+    res.redirect("/urls")
+  } else {
+    const templateVars = {
+      user: users[req.session.user_id]
+    };
+    res.render("login", templateVars);
   };
-  res.render("login", templateVars);
 });
 
 app.post("/login", (req, res) => {
@@ -95,10 +96,10 @@ app.post("/login", (req, res) => {
       req.session.user_id = user.id;
       res.redirect("/urls");
     } else {
-      res.status(403).send('Invalid User/Password')
+      res.status(401).send('Invalid User/Password')
     }
   } else {
-    res.status(403).send('Invalid User/Password')
+    res.status(401).send('Invalid User/Password')
   };
 });
 
@@ -111,41 +112,48 @@ app.get("/urls" , (req, res) => {
     };
     res.render("urls_index", templateVars);
   } else {
-      res.status(401).send(`Please Login First or Register`);
+      res.status(401).send(`Please <a href="/login">Login</a>, or <a href="/register">Register</a>`);
   }
 });
 
 app.post("/urls", (req, res) => {
   if (checkIfLoggedIn(req.session.user_id, users)) {
-  const shortURL = generateRandomString();
-  const dateCreated = currentTimeStamp();
-  urlDatabase[shortURL] = { longURL: req.body.longURL, userID: req.session.user_id, noVists: 0, dateCreated: dateCreated };
-  visitors[shortURL] = {};
-  res.redirect(`/urls/${shortURL}`);
+    const shortURL = generateRandomString();
+    const dateCreated = currentTimeStamp();
+    urlDatabase[shortURL] = { longURL: req.body.longURL, userID: req.session.user_id, noVists: 0, dateCreated: dateCreated };
+    visitors[shortURL] = {};
+    res.redirect(`/urls/${shortURL}`);
   } else {
-    res.statusStatus(401).write("Forbidden");
+    res.status(401).write("Forbidden");
   }
 });
 
 app.get("/register", (req, res) => {
-  const templateVars = {
-  user: users[req.session.user_id]
-  }
-  res.render("register", templateVars)
+  if (checkIfLoggedIn(req.session.user_id, users)) {
+    res.redirect("/urls")
+  } else {
+    const templateVars = {
+    user: users[req.session.user_id]
+    }
+    res.render("register", templateVars)
+  };
 });
 
 app.post("/register", (req, res) => {
-  if (req.body.username === "" || req.body.password === "" || checkUserExists(req.body.email, users)){
-    res.status(400).send('Bad Request')
+  if (checkUserExists(req.body.email, users)){
+    res.status(400).send('Email Exists');
+  }
+  if (req.body.email === '' || req.body.password === '') {
+    res.status(400).send('Bad Request');
   } else {
-    let id = generateRandomString()
+    let id = generateRandomString();
     users[id] = {
       id: id,
       email: req.body.email,
       password: bcrypt.hashSync(req.body.password, 10)
     };
-    req.session.user_id = user.id
-    res.redirect("/urls")
+    req.session.user_id = users[id].id;
+    res.redirect("/urls");
   }
 });
 
@@ -182,25 +190,29 @@ app.get("/urls/:shortURL", (req, res) => {
 });
 
 app.get("/u/:shortURL", (req, res) => {
-  urlDatabase[req.params.shortURL].noVists += 1;
-  let timeStamp = currentTimeStamp();
-    if (!req.cookies.visitorId) {
-      let visitorId = generateRandomString();
-      res.cookie("visitorId", visitorId);
-      visitors[req.params.shortURL][visitorId] = {timestamp: [timeStamp]};
-    } else {
-      if (visitors[req.params.shortURL][req.cookies.visitorId]){
-        visitors[req.params.shortURL][req.cookies.visitorId].timestamp.push(timeStamp); 
+  if (!urlDatabase[req.params.shortURL]) {
+    res.status(404).redirect("/404")
+  } else {
+    urlDatabase[req.params.shortURL].noVists += 1;
+    let timeStamp = currentTimeStamp();
+      if (!req.cookies.visitorId) {
+        let visitorId = generateRandomString();
+        res.cookie("visitorId", visitorId);
+        visitors[req.params.shortURL][visitorId] = {timestamp: [timeStamp]};
       } else {
-      visitors[req.params.shortURL][req.cookies.visitorId] = {timestamp: [timeStamp]}; 
+        if (visitors[req.params.shortURL][req.cookies.visitorId]){
+          visitors[req.params.shortURL][req.cookies.visitorId].timestamp.push(timeStamp); 
+        } else {
+        visitors[req.params.shortURL][req.cookies.visitorId] = {timestamp: [timeStamp]}; 
+        };
       };
+      const longURL = urlDatabase[req.params.shortURL].longURL;
+    if(!(longURL.startsWith('http://')) && !(longURL.startsWith('https://'))) {
+      res.redirect(`https://${longURL}`);
+    } else {
+      res.redirect(`${longURL}`);
     };
-  const longURL = urlDatabase[req.params.shortURL].longURL;
-  if(!(longURL.startsWith('http://')) && !(longURL.startsWith('https://'))) {
-    res.redirect(`https://${longURL}`);
-  } else{
-    res.redirect(`${longURL}`);
-  };
+  }
 });
 
 app.delete("/urls/:shortURL", (req, res) => {
